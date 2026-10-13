@@ -1,63 +1,73 @@
-name: Student Result ML CI-CD
+name: Employee Attrition - Continuous Delivery
 
 on:
   push:
     branches:
       - main
-
-  pull_request:
-    branches:
-      - main
-
   workflow_dispatch:
 
-permissions:
-  contents: read
-
 jobs:
-  train-test-deliver:
+  build-test-release:
     runs-on: ubuntu-latest
 
     steps:
+
+      # 1. Get repository code
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      # 2. Setup Python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
-      - name: Upgrade pip
-        run: python -m pip install --upgrade pip
-
+      # 3. Install dependencies
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r practical5/requirements.txt
 
-      - name: Train student result model
-        run: python train_model.py
+      # 4. Train Employee Attrition model
+      - name: Train model
+        run: |
+          cd practical5
+          python train_model.py
 
-      - name: Check ML quality gate
-        run: python quality_gate.py
+      # 5. Run quality gate
+      - name: Run ML quality gate
+        run: |
+          cd practical5
+          python quality_gate.py
 
-      - name: Run automated ML tests
-        run: python -m unittest test_ml_pipeline.py -v
+      # 6. Run ML pipeline tests
+      - name: Run ML tests
+        run: |
+          cd practical5
+          pytest test_ml_pipeline.py
 
-      - name: Run prediction application tests
-        run: python -m unittest test_app.py -v
+      # 7. Run Flask API tests
+      - name: Run prediction API tests
+        run: |
+          cd practical5
+          pytest test_app.py
 
+      # 8. Create release candidate
       - name: Prepare release candidate
         run: |
           mkdir -p release_candidate
-          cp app.py release_candidate/
-          cp student_result_model.pkl release_candidate/
-          cp metrics.json release_candidate/
-          cp requirements.txt release_candidate/
-          printf "Student Result Prediction ML Application
+          cp practical5/app.py release_candidate/
+          cp practical5/employee_attrition_model.pkl release_candidate/
+          cp practical5/metrics.json release_candidate/
+          cp practical5/requirements.txt release_candidate/
+          cp practical6/Dockerfile release_candidate/
+          cp practical6/.dockerignore release_candidate/
+          echo "Employee Attrition ML Release Candidate" > release_candidate/DEPLOYMENT.txt
+          echo "Created by GitHub Actions" >> release_candidate/DEPLOYMENT.txt
 
+      # 9. Upload release candidate
       - name: Upload release candidate
         uses: actions/upload-artifact@v4
         with:
-          name: student-result-ml-release
+          name: employee-attrition-ml-release
           path: release_candidate/
-          if-no-files-found: error
-          retention-days: 7
